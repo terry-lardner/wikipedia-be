@@ -7,7 +7,8 @@ var articlecollectionSchema = new Schema({
 	content: String,
 	contentFeat: String,
 	featured: Boolean, 
-	imageUrl: String
+	imageUrl: String,
+	featuredDate: Number
 });
 
 //Set collection

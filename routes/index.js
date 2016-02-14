@@ -5,12 +5,21 @@ var router = express.Router();
 
 var Article = require('../models/articles');
 
+var interval = 5; //minutes
 
 //Get article
 router.get('/', function(req, res) {
-	console.log('Connection established to Wikipedia-fe.');
 	Article.find(function(err, articles) {
 		res.send(articles);
+	});
+
+});
+
+router.get('/feat', function(req, res) {
+	
+	//Get all yet-to-be featured articles.	
+	Article.findOne({featured:true, featuredDate: {$gt:55}}, function(err, article) {
+		res.send(article);
 	});
 });
 
@@ -40,7 +49,8 @@ router.post('/saveArticle',function(req, res) {
 		content : req.body.content,
 		contentFeat : req.body.contentFeat,
 		featured: req.body.featured, 
-		imageUrl : req.body.imageUrl
+		imageUrl : req.body.imageUrl,
+		featuredDate: req.body.featuredDate
 	};
 
 	//Save to db
@@ -91,27 +101,62 @@ router.put('/updateArticle/:title',function(req, res) {
 	});
 });
 
-//UPDATE an article feat
-router.put('/updateFeat/:id',function(req, res) {
+//Logic: Every x minutes set a new article to be featured based on the feature date.
+var switchFeatured = setInterval(cycleFeaturedArticles, interval * 60 * 1000);
 
-	//Get article
-	Article.findOne({_id: req.params.id}, function(err, article){
-		if (err) {
-			return res.send(err);
+function recycleFeatured() {
+	Article.find({featuredDate: 55}, function(err, articles) {
+		for(var i=0; i<articles.length; i++) {
+			articles[i].featuredDate = 0;
+
+			//Save to db
+			articles[i].save(function(err, data) {
+				if (err) {
+					return res.send("Error saving to database!!");
+				} 
+			});
 		}
-
-		article.contentFeat = req.body.contentFeat;
-
-
-
-		//Save to db
-		article.save(function(err, data) {
-			if (err) {
-				return res.send("Error saving to database!!");
-			} 
-			res.send(data);
-		});
 	});
-});
+}
+
+function cycleFeaturedArticles() {
+	console.log('Calculating new featured article...');
+	
+	//Get any active featured article not yet 'expired'
+	Article.findOne({featuredDate: {$gt:55}}, function(err, article) {
+		if (article) {
+			console.log('FOUND CURRENT featured article: [' + article.title + ']');
+			article.featuredDate = 55 //55 - article already featured;
+
+			//Save to db
+			article.save(function(err, data) {
+				if (err) {
+					return res.send("Error saving to database!!");
+				} 
+			});
+		} else {
+			console.log('No active featured articles found.');
+		}
+	});
+
+	//Get the next article to be featured
+	Article.findOne({featured:true, featuredDate: 0}, function(err, article) {
+		if (article) {
+			console.log('FOUND NEXT featured article: [' + article.title + ']');
+			article.featuredDate = Date.now();
+
+			//Save to db
+			article.save(function(err, data) {
+				if (err) {
+					return res.send("Error saving to database!!");
+				} 
+			});
+		} else {
+			//Optional recycle all featured articles if no new ones remain
+			console.log('No unfeatured articles remaining....recycling..');
+			recycleFeatured();
+		}
+	});
+}
 
 module.exports = router;
