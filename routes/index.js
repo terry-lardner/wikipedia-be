@@ -31,12 +31,12 @@ router.get('/test', function(req, res) {
 
 //Get article
 router.get('/:title', function(req, res) {
-	Article.findOne({title: req.params.title}, function(err, article){
+	Article.findOne({title: req.params.title}, function(err, articles){
 		if (err) {
 			return res.send(err);
 		}
 
-		res.send(article);
+		res.send(articles);
 	});
 });
 
