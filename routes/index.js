@@ -7,7 +7,7 @@ var Article = require('../models/articles');
 
 var interval = 5; //minutes
 
-//Get article
+//Get all articles
 router.get('/', function(req, res) {
 	Article.find(function(err, articles) {
 		res.send(articles);
@@ -15,21 +15,34 @@ router.get('/', function(req, res) {
 
 });
 
-router.get('/feat', function(req, res) {
+//Get list of articles by title
+router.get('/search/:query', function(req, res) {
+	var query = req.params.query.split('&');
+	var queryTitle = query[0].substring(2);
+
+	var regex = new RegExp(queryTitle, 'i');
+
+	Article.find({title: {$in:regex}}, function(err, articles) {
+		res.send(articles);
+	});
 	
-	//Get all yet-to-be featured articles.	
+});
+
+//Get all yet-to-be featured articles.	
+router.get('/feat', function(req, res) {
 	Article.findOne({featured:true, featuredDate: {$gt:55}}, function(err, article) {
 		res.send(article);
 	});
 });
 
+//This is purely for offline testing
 router.get('/test', function(req, res) {
 	console.log('Connection established to Wikipedia-fe.');
 	res.sendStatus(200);
 });
 
 
-//Get article
+//Get article by title
 router.get('/:title', function(req, res) {
 	Article.findOne({title: req.params.title}, function(err, articles){
 		if (err) {
@@ -41,7 +54,7 @@ router.get('/:title', function(req, res) {
 });
 
 //POST new Article
-router.post('/saveArticle',function(req, res) {
+router.post('/saveArticle', function(req, res) {
 
 	//Build object from form data
 	var newArticle = {
@@ -64,7 +77,7 @@ router.post('/saveArticle',function(req, res) {
 });
 
 
-//REMOVE a user 
+//Delete an article 
 router.delete('/delete/:title', function(req, res) {
 
 	Article.remove({
@@ -80,24 +93,20 @@ router.delete('/delete/:title', function(req, res) {
 //UPDATE an article
 router.put('/updateArticle/:title',function(req, res) {
 
-	//Get article
-	Article.findOne({title: req.params.title}, function(err, article){
+	//Get article	
+	var newArticle = {
+		content: req.body.content,
+		contentFeat: req.body.contentFeat,
+		featured: req.body.featured,
+		imageUrl: req.body.imageUrl	
+	}		
+
+	Article.findOneAndUpdate({title: req.params.title}, newArticle, {new: true}, function(err, article){
 		if (err) {
-			return res.send(err);
+			return res.send("Error updating article [" + err + "]");
 		}
 
-		article.content = req.body.content;
-		article.contentFeat = req.body.contentFeat;
-		article.featured = req.body.featured;
-		article.imageUrl = req.body.imageUrl;
-
-		//Save to db
-		article.save(function(err, data) {
-			if (err) {
-				return res.send("Error saving to database!!");
-			} 
-			res.send(data);
-		});
+		res.send(article);
 	});
 });
 
@@ -112,7 +121,7 @@ function recycleFeatured() {
 			//Save to db
 			articles[i].save(function(err, data) {
 				if (err) {
-					return res.send("Error saving to database!!");
+					console.log("Error recycling featured articles [" + err + "]");
 				} 
 			});
 		}
@@ -121,41 +130,41 @@ function recycleFeatured() {
 
 function cycleFeaturedArticles() {
 	console.log('Calculating new featured article...');
-	
-	//Get any active featured article not yet 'expired'
-	Article.findOne({featuredDate: {$gt:55}}, function(err, article) {
-		if (article) {
-			console.log('FOUND CURRENT featured article: [' + article.title + ']');
-			article.featuredDate = 55 //55 - article already featured;
 
-			//Save to db
-			article.save(function(err, data) {
-				if (err) {
-					return res.send("Error saving to database!!");
-				} 
-			});
+	var newArticle = {
+		featuredDate: 55
+	}
+	
+	//Expire the article currently being featured
+	Article.findOneAndUpdate({featuredDate: {$gt:55}}, newArticle, {new:true, upsert: false}, function(err, article){
+		if (err) {
+			console.log('Error expiring featured article [' + err + ']');
+		}
+
+		if (article) {
+			console.log('Expired CURRENT featured article: [' + article.title + '] [' + article.featuredDate + "]");
 		} else {
 			console.log('No active featured articles found.');
-		}
+		}	
 	});
 
-	//Get the next article to be featured
-	Article.findOne({featured:true, featuredDate: 0}, function(err, article) {
-		if (article) {
-			console.log('FOUND NEXT featured article: [' + article.title + ']');
-			article.featuredDate = Date.now();
+	newArticle = {
+		featuredDate: Date.now()
+	}
 
-			//Save to db
-			article.save(function(err, data) {
-				if (err) {
-					return res.send("Error saving to database!!");
-				} 
-			});
+	//Set the next article to be featured
+	Article.findOneAndUpdate({featured:true, featuredDate: 0}, newArticle, {new:true, upsert: false}, function(err, article){
+		if (err) {
+			console.log('Error setting next featured article [' + err + ']');
+		}
+
+		if (article) {
+			console.log('Retrieved NEXT featured article: [' + article.title + '] [' + article.featuredDate + ']');
 		} else {
 			//Optional recycle all featured articles if no new ones remain
 			console.log('No unfeatured articles remaining....recycling..');
 			recycleFeatured();
-		}
+		}	
 	});
 }
 
