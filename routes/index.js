@@ -77,11 +77,12 @@ router.post('/saveArticle', function(req, res) {
 });
 
 
-//Delete an article 
+//Delete an article
+/*
 router.delete('/delete/:title', function(req, res) {
 
 	Article.remove({
-		_id: req.params.id
+		title: req.params.title
 	}, function(err) {
 		if (err) {
 			return res.send(err);
@@ -89,6 +90,7 @@ router.delete('/delete/:title', function(req, res) {
 		res.sendStatus(200);
 	});
 });
+*/
 
 //UPDATE an article
 router.put('/updateArticle/:title',function(req, res) {
