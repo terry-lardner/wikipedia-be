@@ -1,1 +1,2 @@
-nodemon in cmd
+nodemon
+mongod --dbpath=D:\WebDev\github\wikipedia-be\data

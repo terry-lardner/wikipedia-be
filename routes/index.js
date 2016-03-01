@@ -19,13 +19,22 @@ router.get('/', function(req, res) {
 router.get('/search/:query', function(req, res) {
 	var query = req.params.query.split('&');
 	var queryTitle = query[0].substring(2);
+	var queryArr;
+	var regex;
 
-	var regex = new RegExp(queryTitle, 'i');
+	if (queryTitle.indexOf('\"') > -1) {
+		queryTitle = queryTitle
+						.replace(/\+/g, '_')
+						.replace(/\"/g, '');
+		regex = new RegExp(queryTitle); //Exact match to title
+	} else {
+		queryArr = queryTitle.split('+');
+		regex = new RegExp(queryArr.join('|'), 'i'); //Match any terms in title
+	}
 
 	Article.find({title: {$in:regex}}, function(err, articles) {
 		res.send(articles);
-	});
-	
+	});	
 });
 
 //Get all yet-to-be featured articles.	
